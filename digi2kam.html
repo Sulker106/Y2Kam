@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Optimized viewport for mobile: prevents pinch-to-zoom and sets exact scale -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro 2000s Digicam</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Removes blue tap flash on Android */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* Use dvh for mobile address bar handling, fallback to vh */
+            height: 100vh;
+            height: 100dvh; 
+            margin: 0;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            padding: 20px;
+            overflow: hidden; /* Prevents bounce scrolling on mobile */
+        }
+
+        /* Camera Body - Responsive Chrome Silver */
+        .camera-body {
+            width: 100%;
+            max-width: 1050px; 
+            height: auto;
+            max-height: 100%;
+            background: linear-gradient(135deg, #f5f5f5 0%, #d4d4d4 40%, #a3a3a3 100%);
+            border-radius: 30px;
+            box-shadow: 
+                inset -5px -5px 15px rgba(0,0,0,0.3),
+                inset 5px 5px 15px rgba(255,255,255,0.8),
+                10px 10px 30px rgba(0,0,0,0.7);
+            padding: 25px;
+            display: grid;
+            grid-template-columns: 1fr 160px; 
+            gap: 25px;
+            position: relative;
+            border: 2px solid #888;
+        }
+
+        /* Screen Section */
+        .screen-container {
+            background: #111;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: inset 0 0 20px #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            position: relative;
+        }
+
+        /* 4:3 Aspect Ratio Bezel */
+        .screen-bezel {
+            border: 4px solid #333;
+            border-radius: 5px;
+            background: #000;
+            aspect-ratio: 4 / 3;
+            width: 100%;
+            max-height: 100%;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #raw-video {
+            display: none;
+        }
+
+        #filtered-canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .osd {
+            position: absolute;
+            color: #ffaa00; 
+            font-family: 'VT323', monospace;
+            font-size: clamp(18px, 4vw, 24px);
+            text-shadow: 2px 2px 0px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .osd-top-left { top: 10px; left: 10px; }
+        .osd-top-right { top: 10px; right: 10px; color: #f00; display: none; }
+        .osd-bottom-left { bottom: 10px; left: 10px; }
+
+        /* Controls Section */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; 
+            height: 100%;
+            gap: 15px;
+        }
+
+        .metallic-panel {
+            background: linear-gradient(to bottom, #dcdcdc, #8f8f8f);
+            border-radius: 10px;
+            padding: 12px 10px; 
+            box-shadow: inset 0 1px 3px #fff, 0 4px 6px rgba(0,0,0,0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px; 
+            border: 1px solid #777;
+            width: 100%;
+        }
+
+        .btn {
+            background: linear-gradient(to bottom, #eaeaea, #b5b5b5);
+            border: 1px solid #777;
+            border-radius: 5px;
+            padding: 10px; 
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            width: 100%;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.3), inset 0 1px 2px #fff;
+            text-transform: uppercase;
+            font-size: 12px; 
+            transition: all 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
+            min-height: 40px; /* Touch target size */
+        }
+
+        .btn:active {
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 2px 5px rgba(0,0,0,0.4);
+            transform: translateY(2px);
+            background: linear-gradient(to bottom, #b5b5b5, #eaeaea);
+        }
+
+        .btn.active-mode {
+            background: linear-gradient(to bottom, #ffcccc, #ff6666);
+            color: #600;
+            box-shadow: inset 0 0 10px rgba(255,0,0,0.5);
+        }
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
+            fill: #333;
+        }
+
+        /* Flash Switch */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 11px; 
+            font-weight: bold;
+            color: #333;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 38px; 
+            height: 22px; 
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555;
+            transition: .2s;
+            border-radius: 20px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px; 
+            width: 16px; 
+            left: 3px;
+            bottom: 3px;
+            background: linear-gradient(to bottom, #eee, #aaa);
+            transition: .2s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        input:checked + .slider { background-color: #ff9900; }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        /* Zoom Scale */
+        .zoom-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px; 
+            height: 80px; 
+            margin: 5px 0;
+            width: 100%;
+        }
+        .zoom-scale {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            font-size: 10px; 
+            font-weight: bold;
+            color: #333;
+            text-align: right;
+        }
+        .zoom-slider-container {
+            width: 15px;
+            height: 80px; 
+            position: relative;
+        }
+        .zoom-wheel {
+            -webkit-appearance: none;
+            width: 80px; 
+            height: 16px; 
+            background: #444;
+            outline: none;
+            border-radius: 10px;
+            box-shadow: inset 0 -2px 5px rgba(0,0,0,0.8);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-90deg); 
+        }
+        .zoom-wheel::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px; 
+            height: 24px;
+            border-radius: 50%;
+            background: repeating-linear-gradient(90deg, #ccc, #ccc 2px, #888 2px, #888 4px);
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            border: 2px solid #555;
+        }
+
+        /* Big Capture Button */
+        .shutter-btn {
+            width: 65px; 
+            height: 65px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fff, #c0c0c0, #666);
+            border: 3px solid #888;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.5), inset 0 -2px 5px rgba(0,0,0,0.5);
+            cursor: pointer;
+            margin: 5px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .shutter-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5), inset 0 3px 8px rgba(0,0,0,0.7);
+        }
+        .shutter-btn svg {
+            width: 26px; 
+            height: 26px;
+            stroke: #333;
+            filter: drop-shadow(0 1px 1px rgba(255,255,255,0.7));
+        }
+
+        .video-controls {
+            display: none;
+            width: 100%;
+            gap: 10px;
+        }
+
+        /* Download Link Area - Moved inside container so it doesn't cause page scroll */
+        #gallery {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        /* Mobile Adjustments (Android/iOS) */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .camera-body {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+                padding: 15px;
+                gap: 15px;
+                border-radius: 20px;
+            }
+            .controls {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-content: stretch;
+            }
+            .metallic-panel {
+                width: 48%; /* Splits panels cleanly into 2 columns on mobile */
+                gap: 8px;
+            }
+            .metallic-panel:last-child {
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-around;
+            }
+            
+            /* Change zoom wheel to horizontal on mobile for better touch behavior */
+            .zoom-area {
+                height: 30px;
+                flex-direction: column;
+            }
+            .zoom-scale {
+                flex-direction: row;
+                width: 100%;
+                text-align: center;
+            }
+            .zoom-slider-container {
+                width: 100%;
+                height: 20px;
+            }
+            .zoom-wheel {
+                transform: translate(-50%, -50%); /* Removed rotation */
+                width: 100%;
+            }
+            .shutter-btn {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Embedded audio files using GitHub Raw Links -->
+    <audio id="audio-click" src="https://raw.githubusercontent.com/Sulker106/Y2Kam-audio1/main/click.mp3" preload="auto"></audio>
+    <audio id="audio-shutter" src="https://raw.githubusercontent.com/Sulker106/Y2Kam-audio2/main/shutter.wav" preload="auto"></audio>
+
+    <div class="camera-body">
+        
+        <div class="screen-container">
+            <div id="gallery"></div> <!-- Moved gallery overlay here -->
+            <div class="screen-bezel">
+                <video id="raw-video" autoplay playsinline muted></video>
+                <canvas id="filtered-canvas"></canvas>
+                
+                <div class="osd osd-top-left" id="mode-display">PHOTO</div>
+                <div class="osd osd-top-right" id="rec-indicator">● REC</div>
+                <div class="osd osd-bottom-left" id="zoom-display">1.0x</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="metallic-panel">
+                <button class="btn active-mode" id="btn-photo-mode">Photo</button>
+                <button class="btn" id="btn-video-mode">Video</button>
+                <button class="btn" id="btn-rotate">↺ Rotate Cam</button>
+            </div>
+
+            <div class="metallic-panel">
+                <div class="switch-container">
+                    <span>FLASH OFF</span>
+                    <label class="switch">
+                        <input type="checkbox" id="flash-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span>ON</span>
+                </div>
+
+                <div class="zoom-area">
+                    <div class="zoom-scale">
+                        <span>1x</span>
+                        <span>2x</span>
+                        <span>3x</span>
+                    </div>
+                    <div class="zoom-slider-container">
+                        <input type="range" min="1" max="3" step="0.1" value="1" class="zoom-wheel" id="zoom-slider">
+                    </div>
+                </div>
+            </div>
+
+            <div class="metallic-panel">
+                <button class="shutter-btn" id="btn-capture">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                </button>
+                
+                <div class="video-controls" id="video-controls">
+                    <button class="btn" id="btn-pause">
+                        <svg viewBox="0 0 24 24" id="icon-pause-svg"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    </button>
+                    <button class="btn" id="btn-stop">
+                        <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const rawVideo = document.getElementById('raw-video');
+        const canvas = document.getElementById('filtered-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const btnPhotoMode = document.getElementById('btn-photo-mode');
+        const btnVideoMode = document.getElementById('btn-video-mode');
+        const btnCapture = document.getElementById('btn-capture');
+        const btnRotate = document.getElementById('btn-rotate');
+        const btnPause = document.getElementById('btn-pause');
+        const btnStop = document.getElementById('btn-stop');
+        const videoControls = document.getElementById('video-controls');
+        
+        const iconPauseSvg = document.getElementById('icon-pause-svg');
+        const flashToggle = document.getElementById('flash-toggle');
+        const zoomSlider = document.getElementById('zoom-slider');
+        const zoomDisplay = document.getElementById('zoom-display');
+        const modeDisplay = document.getElementById('mode-display');
+        const recIndicator = document.getElementById('rec-indicator');
+        const gallery = document.getElementById('gallery');
+
+        const clickAudio = document.getElementById('audio-click');
+        const shutterAudio = document.getElementById('audio-shutter');
+
+        const svgPause = `<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>`;
+        const svgPlay = `<polygon points="5,3 19,12 5,21"/>`;
+
+        let currentMode = 'photo';
+        let stream = null;
+        let videoTrack = null;
+        let facingMode = 'environment'; // Defaults to back camera on Android
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+        let animationFrameId;
+        let noiseCanvas, noiseCtx;
+
+        const Y2K_FILTER = 'contrast(1.15) saturate(1.1) sepia(0.3) hue-rotate(-5deg) brightness(1.05)';
+
+        function generateNoisePattern(width, height) {
+            noiseCanvas = document.createElement('canvas');
+            noiseCanvas.width = width;
+            noiseCanvas.height = height;
+            noiseCtx = noiseCanvas.getContext('2d');
+            
+            const imageData = noiseCtx.createImageData(width, height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const val = Math.random() * 255;
+                data[i] = val;     // R
+                data[i+1] = val;   // G
+                data[i+2] = val;   // B
+                data[i+3] = 25;    // Alpha 
+            }
+            noiseCtx.putImageData(imageData, 0, 0);
+        }
+
+        async function initCamera() {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: facingMode,
+                        width: { ideal: 1440 },
+                        height: { ideal: 1080 },
+                        aspectRatio: { ideal: 1.333333 }
+                    },
+                    audio: true
+                });
+
+                rawVideo.srcObject = stream;
+                rawVideo.play().catch(err => console.warn("Auto-play prevented", err));
+                videoTrack = stream.getVideoTracks()[0];
+                
+                const checkVideoReady = () => {
+                    if (rawVideo.videoWidth > 0 && rawVideo.videoHeight > 0) {
+                        canvas.width = rawVideo.videoWidth;
+                        canvas.height = rawVideo.videoHeight;
+                        generateNoisePattern(canvas.width, canvas.height); 
+                        startRenderLoop();
+                        checkHardwareCapabilities();
+                    } else {
+                        requestAnimationFrame(checkVideoReady);
+                    }
+                };
+                
+                rawVideo.onloadedmetadata = () => checkVideoReady();
+                
+            } catch (err) {
+                console.error("Error accessing camera:", err);
+                alert("Camera access issue. Please ensure camera permissions are granted (Note: Requires HTTPS on mobile).");
+            }
+        }
+
+        function startRenderLoop() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            function render() {
+                if (rawVideo.readyState >= 2 && !rawVideo.paused) {
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    
+                    ctx.clearRect(0, 0, w, h);
+                    let zoomLevel = parseFloat(zoomSlider.value);
+                    ctx.save();
+                    
+                    ctx.translate(w / 2, h / 2);
+                    ctx.scale(zoomLevel, zoomLevel);
+                    ctx.translate(-w / 2, -h / 2);
+                    
+                    ctx.filter = Y2K_FILTER;
+                    ctx.drawImage(rawVideo, 0, 0, w, h);
+                    ctx.filter = 'none';
+                    
+                    ctx.globalCompositeOperation = 'screen';
+                    const leakGradient = ctx.createLinearGradient(0, 0, w * 0.25, 0);
+                    leakGradient.addColorStop(0, 'rgba(255, 120, 50, 0.15)');
+                    leakGradient.addColorStop(1, 'rgba(255, 120, 50, 0)');
+                    ctx.fillStyle = leakGradient;
+                    ctx.fillRect(0, 0, w, h);
+                    
+                    ctx.globalCompositeOperation = 'multiply';
+                    const vignetteGradient = ctx.createRadialGradient(w/2, h/2, w * 0.3, w/2, h/2, w * 0.8);
+                    vignetteGradient.addColorStop(0, 'rgba(255,255,255,1)');
+                    vignetteGradient.addColorStop(1, 'rgba(180,180,180,1)'); 
+                    ctx.fillStyle = vignetteGradient;
+                    ctx.fillRect(0, 0, w, h);
+
+                    ctx.globalCompositeOperation = 'overlay';
+                    if (noiseCanvas) {
+                        const offsetX = (Math.random() * 50) - 25;
+                        const offsetY = (Math.random() * 50) - 25;
+                        ctx.drawImage(noiseCanvas, offsetX, offsetY, w + 50, h + 50);
+                    }
+                    
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.font = `bold ${h * 0.04}px 'VT323', monospace`;
+                    const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '.');
+                    ctx.fillText(dateStr, w - (h * 0.25), h - (h * 0.05));
+
+                    ctx.restore();
+                }
+                animationFrameId = requestAnimationFrame(render);
+            }
+            render();
+        }
+
+        function playClickSound() {
+            clickAudio.currentTime = 0;
+            clickAudio.play().catch(err => console.warn("Audio play prevented:", err));
+        }
+
+        function playShutterSound() {
+            shutterAudio.currentTime = 0;
+            shutterAudio.play().catch(err => console.warn("Audio play prevented:", err));
+        }
+
+        // Reusable screen flash effect
+        function triggerScreenFlash(color = 'white', duration = 500) {
+            const flashOverlay = document.createElement('div');
+            flashOverlay.style.position = 'absolute';
+            flashOverlay.style.top = '0';
+            flashOverlay.style.left = '0';
+            flashOverlay.style.width = '100%';
+            flashOverlay.style.height = '100%';
+            flashOverlay.style.backgroundColor = color;
+            flashOverlay.style.zIndex = '100';
+            flashOverlay.style.pointerEvents = 'none'; // so it doesn't block clicks
+            flashOverlay.style.opacity = '1';
+            flashOverlay.style.transition = `opacity ${duration / 1000}s ease-out`;
+            document.querySelector('.screen-bezel').appendChild(flashOverlay);
+            
+            // Force reflow
+            void flashOverlay.offsetWidth;
+
+            setTimeout(() => {
+                flashOverlay.style.opacity = '0';
+                setTimeout(() => flashOverlay.remove(), duration);
+            }, 50);
+        }
+
+        flashToggle.addEventListener('change', () => {
+            playClickSound(); 
+            if (videoTrack) {
+                const capabilities = videoTrack.getCapabilities();
+                if (capabilities.torch) {
+                    try {
+                        videoTrack.applyConstraints({ advanced: [{ torch: flashToggle.checked }] });
+                    } catch (e) { console.error("Torch error", e); }
+                }
+            }
+        });
+
+        function checkHardwareCapabilities() {
+            if (!videoTrack) return;
+            const capabilities = videoTrack.getCapabilities();
+            if (flashToggle.checked && capabilities.torch) {
+                videoTrack.applyConstraints({ advanced: [{ torch: true }] }).catch(e=>{});
+            }
+        }
+
+        zoomSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            zoomDisplay.innerText = `${parseFloat(val).toFixed(1)}x`;
+            if (videoTrack) {
+                const capabilities = videoTrack.getCapabilities();
+                if (capabilities.zoom) {
+                    videoTrack.applyConstraints({ advanced: [{ zoom: val }] }).catch(err => console.log(err));
+                }
+            }
+        });
+
+        btnRotate.addEventListener('click', () => {
+            playClickSound();
+            facingMode = facingMode === 'environment' ? 'user' : 'environment';
+            initCamera();
+        });
+
+        btnPhotoMode.addEventListener('click', () => {
+            playClickSound();
+            currentMode = 'photo';
+            btnPhotoMode.classList.add('active-mode');
+            btnVideoMode.classList.remove('active-mode');
+            modeDisplay.innerText = 'PHOTO';
+        });
+
+        btnVideoMode.addEventListener('click', () => {
+            playClickSound();
+            currentMode = 'video';
+            btnVideoMode.classList.add('active-mode');
+            btnPhotoMode.classList.remove('active-mode');
+            modeDisplay.innerText = 'VIDEO';
+        });
+
+        btnCapture.addEventListener('click', () => {
+            if (currentMode === 'photo') {
+                takePhoto();
+            } else {
+                if (!isRecording) startRecording();
+            }
+        });
+
+        function takePhoto() {
+            playShutterSound();
+            
+            // Apply a solid white flash if toggle is on, or a softer flash if off
+            if (flashToggle.checked) {
+                triggerScreenFlash('white', 600);
+            } else {
+                triggerScreenFlash('rgba(255, 255, 255, 0.5)', 300);
+            }
+
+            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+            createDownloadLink(dataURL, 'photo.jpg', '📸 Save Photo');
+        }
+
+        function startRecording() {
+            recordedChunks = [];
+            const canvasStream = canvas.captureStream(30); 
+            
+            if (stream.getAudioTracks().length > 0) {
+                canvasStream.addTrack(stream.getAudioTracks()[0]);
+            }
+
+            mediaRecorder = new MediaRecorder(canvasStream, { mimeType: 'video/webm' });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                createDownloadLink(url, 'retro_video.webm', '🎥 Save Video');
+                recIndicator.style.display = 'none';
+                isRecording = false;
+                
+                videoControls.style.display = 'none';
+                btnCapture.style.background = 'radial-gradient(circle at 30% 30%, #fff, #c0c0c0, #666)';
+                iconPauseSvg.innerHTML = svgPause;
+                
+                playShutterSound();
+                triggerScreenFlash('rgba(255, 255, 255, 0.5)', 300); // Changed to soft white flash when stopping
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            recIndicator.style.display = 'block';
+            videoControls.style.display = 'flex';
+            btnCapture.style.background = 'radial-gradient(circle at 30% 30%, #ff9999, #ff0000, #880000)';
+            
+            triggerScreenFlash('rgba(255, 0, 0, 0.4)', 300); // Quick red flash when starting
+        }
+
+        btnPause.addEventListener('click', () => {
+            playClickSound();
+            if (mediaRecorder && isRecording) {
+                if (mediaRecorder.state === 'recording') {
+                    mediaRecorder.pause();
+                    iconPauseSvg.innerHTML = svgPlay; 
+                    recIndicator.style.opacity = '0.5';
+                } else if (mediaRecorder.state === 'paused') {
+                    mediaRecorder.resume();
+                    iconPauseSvg.innerHTML = svgPause; 
+                    recIndicator.style.opacity = '1';
+                }
+            }
+        });
+
+        btnStop.addEventListener('click', () => {
+            playClickSound();
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+            }
+        });
+
+        function createDownloadLink(url, filename, text) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.innerText = text;
+            a.style.color = '#fff';
+            a.style.background = 'rgba(0,0,0,0.7)';
+            a.style.border = '1px solid #555';
+            a.style.padding = '8px 12px';
+            a.style.textDecoration = 'none';
+            a.style.borderRadius = '5px';
+            a.style.fontFamily = 'Arial';
+            a.style.fontSize = '12px';
+            a.style.backdropFilter = 'blur(4px)';
+            a.style.display = 'block';
+            
+            // Clear previous link to keep UI clean
+            gallery.innerHTML = '';
+            gallery.appendChild(a);
+            
+            // Auto hide after 5 seconds to keep the camera view clear
+            setTimeout(() => {
+                if(gallery.contains(a)) gallery.removeChild(a);
+            }, 5000);
+        }
+
+        initCamera();
+        
+    </script>
+</body>
+</html>
